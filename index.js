@@ -219,6 +219,21 @@ function registerToolbarButton() {
       </a>
     `,
   });
+
+  parent.document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const button = target.closest("#datepicker-journal-trigger");
+    if (!button) {
+      return;
+    }
+
+    event.preventDefault();
+    toggleCalendarPanel();
+  });
 }
 
 function provideStyles() {
