@@ -22,27 +22,59 @@ function ordinal(value) {
 }
 
 function getMonthNames(locale = "en-US") {
-  return Array.from({ length: 12 }, (_, i) =>
+  const cacheKey = `month-long:${locale}`;
+  if (localeCache.has(cacheKey)) {
+    return localeCache.get(cacheKey);
+  }
+
+  const monthNames = Array.from({ length: 12 }, (_, i) =>
     new Date(2020, i, 1).toLocaleString(locale, { month: "long" })
   );
+
+  localeCache.set(cacheKey, monthNames);
+  return monthNames;
 }
 
 function getShortMonthNames(locale = "en-US") {
-  return Array.from({ length: 12 }, (_, i) =>
+  const cacheKey = `month-short:${locale}`;
+  if (localeCache.has(cacheKey)) {
+    return localeCache.get(cacheKey);
+  }
+
+  const shortMonthNames = Array.from({ length: 12 }, (_, i) =>
     new Date(2020, i, 1).toLocaleString(locale, { month: "short" })
   );
+
+  localeCache.set(cacheKey, shortMonthNames);
+  return shortMonthNames;
 }
 
 function getWeekdayNames(locale = "en-US") {
-  return Array.from({ length: 7 }, (_, i) =>
+  const cacheKey = `weekday-long:${locale}`;
+  if (localeCache.has(cacheKey)) {
+    return localeCache.get(cacheKey);
+  }
+
+  const weekdayNames = Array.from({ length: 7 }, (_, i) =>
     new Date(2020, 5, 7 + i).toLocaleString(locale, { weekday: "long" })
   );
+
+  localeCache.set(cacheKey, weekdayNames);
+  return weekdayNames;
 }
 
 function getShortWeekdayNames(locale = "en-US") {
-  return Array.from({ length: 7 }, (_, i) =>
+  const cacheKey = `weekday-short:${locale}`;
+  if (localeCache.has(cacheKey)) {
+    return localeCache.get(cacheKey);
+  }
+
+  const shortWeekdayNames = Array.from({ length: 7 }, (_, i) =>
     new Date(2020, 5, 7 + i).toLocaleString(locale, { weekday: "short" })
   );
+
+  localeCache.set(cacheKey, shortWeekdayNames);
+  return shortWeekdayNames;
 }
 
 function formatDateByPattern(date, pattern) {
@@ -70,21 +102,34 @@ function formatDateByPattern(date, pattern) {
     EEE: shortWeekdays[date.getDay()],
   };
 
-  const knownTokens = Object.keys(tokenMap).sort((a, b) => b.length - a.length);
-  const tokenRegex = new RegExp(knownTokens.join("|"), "g");
-
-  return pattern.replace(tokenRegex, (token) => tokenMap[token] || token);
+  return pattern.replace(TOKEN_REGEX, (token) => tokenMap[token] || token);
 }
 
+const localeCache = new Map();
+
+const TOKEN_REGEX = new RegExp(
+  ["MMMM", "MMM", "MM", "M", "dd", "d", "do", "EEEE", "EEE", "yyyy", "YYYY", "yy"]
+    .sort((a, b) => b.length - a.length)
+    .join("|"),
+  "g"
+);
+
 async function getPreferredDateFormat() {
+  if (getPreferredDateFormat.cachedFormat) {
+    return getPreferredDateFormat.cachedFormat;
+  }
+
   try {
     const config = await logseq.App.getUserConfigs();
-    return config?.preferredDateFormat || "yyyy-MM-dd";
+    getPreferredDateFormat.cachedFormat = config?.preferredDateFormat || "yyyy-MM-dd";
+    return getPreferredDateFormat.cachedFormat;
   } catch (error) {
     console.error("Could not load preferredDateFormat", error);
     return "yyyy-MM-dd";
   }
 }
+
+getPreferredDateFormat.cachedFormat = null;
 
 async function openJournalByDate(dateText) {
   const pickedDate = new Date(`${dateText}T12:00:00`);
@@ -168,20 +213,20 @@ function registerToolbarButton() {
     `,
   });
 
-  const bindClick = () => {
-    const button = parent.document.getElementById("datepicker-journal-trigger");
-    if (!button) {
-      setTimeout(bindClick, 250);
+  parent.document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
       return;
     }
 
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      toggleCalendarPanel();
-    });
-  };
+    const button = target.closest("#datepicker-journal-trigger");
+    if (!button) {
+      return;
+    }
 
-  bindClick();
+    event.preventDefault();
+    toggleCalendarPanel();
+  });
 }
 
 function provideStyles() {
