@@ -1,0 +1,16 @@
+{
+  "name": "logseq-datepicker-plugin",
+  "version": "1.0.0",
+  "description": "Logseq plugin with toolbar datepicker to jump to journal pages",
+  "main": "index.html",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "test": "echo 'No automated tests configured'"
+  },
+  "logseq": {
+    "id": "logseq-datepicker-plugin",
+    "title": "Datepicker Journal Jump",
+    "icon": "./icon.svg"
+  }
+}
