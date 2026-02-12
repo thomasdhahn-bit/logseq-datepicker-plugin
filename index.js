@@ -22,27 +22,59 @@ function ordinal(value) {
 }
 
 function getMonthNames(locale = "en-US") {
-  return Array.from({ length: 12 }, (_, i) =>
+  const cacheKey = `month-long:${locale}`;
+  if (localeCache.has(cacheKey)) {
+    return localeCache.get(cacheKey);
+  }
+
+  const monthNames = Array.from({ length: 12 }, (_, i) =>
     new Date(2020, i, 1).toLocaleString(locale, { month: "long" })
   );
+
+  localeCache.set(cacheKey, monthNames);
+  return monthNames;
 }
 
 function getShortMonthNames(locale = "en-US") {
-  return Array.from({ length: 12 }, (_, i) =>
+  const cacheKey = `month-short:${locale}`;
+  if (localeCache.has(cacheKey)) {
+    return localeCache.get(cacheKey);
+  }
+
+  const shortMonthNames = Array.from({ length: 12 }, (_, i) =>
     new Date(2020, i, 1).toLocaleString(locale, { month: "short" })
   );
+
+  localeCache.set(cacheKey, shortMonthNames);
+  return shortMonthNames;
 }
 
 function getWeekdayNames(locale = "en-US") {
-  return Array.from({ length: 7 }, (_, i) =>
+  const cacheKey = `weekday-long:${locale}`;
+  if (localeCache.has(cacheKey)) {
+    return localeCache.get(cacheKey);
+  }
+
+  const weekdayNames = Array.from({ length: 7 }, (_, i) =>
     new Date(2020, 5, 7 + i).toLocaleString(locale, { weekday: "long" })
   );
+
+  localeCache.set(cacheKey, weekdayNames);
+  return weekdayNames;
 }
 
 function getShortWeekdayNames(locale = "en-US") {
-  return Array.from({ length: 7 }, (_, i) =>
+  const cacheKey = `weekday-short:${locale}`;
+  if (localeCache.has(cacheKey)) {
+    return localeCache.get(cacheKey);
+  }
+
+  const shortWeekdayNames = Array.from({ length: 7 }, (_, i) =>
     new Date(2020, 5, 7 + i).toLocaleString(locale, { weekday: "short" })
   );
+
+  localeCache.set(cacheKey, shortWeekdayNames);
+  return shortWeekdayNames;
 }
 
 function formatDateByPattern(date, pattern) {
@@ -70,21 +102,34 @@ function formatDateByPattern(date, pattern) {
     EEE: shortWeekdays[date.getDay()],
   };
 
-  const knownTokens = Object.keys(tokenMap).sort((a, b) => b.length - a.length);
-  const tokenRegex = new RegExp(knownTokens.join("|"), "g");
-
-  return pattern.replace(tokenRegex, (token) => tokenMap[token] || token);
+  return pattern.replace(TOKEN_REGEX, (token) => tokenMap[token] || token);
 }
 
+const localeCache = new Map();
+
+const TOKEN_REGEX = new RegExp(
+  ["MMMM", "MMM", "MM", "M", "dd", "d", "do", "EEEE", "EEE", "yyyy", "YYYY", "yy"]
+    .sort((a, b) => b.length - a.length)
+    .join("|"),
+  "g"
+);
+
 async function getPreferredDateFormat() {
+  if (getPreferredDateFormat.cachedFormat) {
+    return getPreferredDateFormat.cachedFormat;
+  }
+
   try {
     const config = await logseq.App.getUserConfigs();
-    return config?.preferredDateFormat || "yyyy-MM-dd";
+    getPreferredDateFormat.cachedFormat = config?.preferredDateFormat || "yyyy-MM-dd";
+    return getPreferredDateFormat.cachedFormat;
   } catch (error) {
     console.error("Could not load preferredDateFormat", error);
     return "yyyy-MM-dd";
   }
 }
+
+getPreferredDateFormat.cachedFormat = null;
 
 async function openJournalByDate(dateText) {
   const pickedDate = new Date(`${dateText}T12:00:00`);
@@ -154,10 +199,17 @@ function toggleCalendarPanel() {
 }
 
 function registerToolbarButton() {
+  logseq.provideModel({
+    toggleDatepickerJournalPanel(event) {
+      event?.preventDefault();
+      toggleCalendarPanel();
+    },
+  });
+
   logseq.App.registerUIItem("toolbar", {
     key: "datepicker-journal-trigger",
     template: `
-      <a class="button" id="datepicker-journal-trigger" title="Journal via Kalender öffnen">
+      <a class="button" data-on-click="toggleDatepickerJournalPanel" title="Journal via Kalender öffnen">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
           <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -167,21 +219,6 @@ function registerToolbarButton() {
       </a>
     `,
   });
-
-  const bindClick = () => {
-    const button = parent.document.getElementById("datepicker-journal-trigger");
-    if (!button) {
-      setTimeout(bindClick, 250);
-      return;
-    }
-
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      toggleCalendarPanel();
-    });
-  };
-
-  bindClick();
 }
 
 function provideStyles() {
